@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Messages</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    nav {
+      background-color: #2c3e50;
+      padding: 1rem;
+      display: flex;
+      gap: 1rem;
+    }
+
+    nav a {
+      color: white;
+      text-decoration: none;
+      font-weight: bold;
+    }
+
+    nav a.active {
+      border-bottom: 2px solid #fff;
+    }
+
+    .card {
+      background: white;
+      max-width: 800px;
+      margin: 2rem auto;
+      padding: 2rem;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    textarea, input[type="file"] {
+      width: 100%;
+      padding: 1rem;
+      font-size: 1rem;
+      border-radius: 6px;
+      margin-bottom: 1rem;
+    }
+
+    button {
+      padding: 0.5rem 1rem;
+      background: #3498db;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    #threadContent p {
+      margin-bottom: 0.5rem;
+    }
+
+    .online-status {
+      font-size: 0.8rem;
+      color: green;
+      margin-left: 5px;
+    }
+
+    .new-indicator {
+      color: red;
+      font-size: 0.8rem;
+      margin-left: 10px;
+    }
+
+    .project-card {
+      border-bottom: 1px solid #eee;
+      padding: 0.6rem 0;
+      cursor: pointer;
+    }
+
+    .project-card:hover {
+      background-color: #f9f9f9;
+    }
+
+    audio {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="admin-dashboard.html">Dashboard</a>
+    <a href="submissions.html">Submissions</a>
+    <a href="assign-task.html">Assign Task</a>
+    <a href="messages.html" class="active">Messages</a>
+    <a href="logout.html">Logout</a>
+    <a href="user-dashboard.html">User View</a>
+  </nav>
+
+  <main>
+    <div class="card">
+      <h2>Messages</h2>
+      <div id="conversationList"></div>
+    </div>
+
+    <div class="card" id="messageThread" style="display:none;">
+      <h3>Conversation with <span id="recipientName"></span> 
+        <span id="statusOnline" class="online-status"></span>
+      </h3>
+      <div id="threadContent" style="max-height:300px; overflow-y:auto; border:1px solid #ccc; padding:1rem; margin-bottom:1rem;"></div>
+      <form id="messageForm">
+        <textarea id="messageText" placeholder="Type your message..." required></textarea>
+        <input type="file" id="attachment" accept="image/*,.pdf,.doc,.docx,.zip" />
+        <button type="submit">Send</button>
+      </form>
+    </div>
+  </main>
+
+  <audio id="notifySound" src="https://www.soundjay.com/buttons/beep-07.wav"></audio>
+
+  <script>
+    const baseURL = "http://localhost:3001";
+    const currentUser = JSON.parse(localStorage.getItem("currentUser"));
+
+    if (!currentUser) {
+      alert("Login required");
+      window.location.href = "login.html";
+    }
+
+    const conversationList = document.getElementById("conversationList");
+    const threadContent = document.getElementById("threadContent");
+    const messageForm = document.getElementById("messageForm");
+    const messageText = document.getElementById("messageText");
+    const recipientName = document.getElementById("recipientName");
+    const threadCard = document.getElementById("messageThread");
+    const statusOnline = document.getElementById("statusOnline");
+    const attachment = document.getElementById("attachment");
+    const notifySound = document.getElementById("notifySound");
+
+    let activeRecipientId = null;
+    let allMessages = [];
+
+    async function loadConversations() {
+      const [users, messages, sessions] = await Promise.all([
+        fetch(`${baseURL}/users`).then(r => r.json()),
+        fetch(`${baseURL}/messages`).then(r => r.json()),
+        fetch(`${baseURL}/sessions`).then(r => r.json())
+      ]);
+      allMessages = messages;
+      const isAdmin = currentUser.role === "admin";
+
+      const targets = users.filter(u => {
+        if (u.id === currentUser.id) return false;
+        return isAdmin ? u.role === "user" : u.role === "admin";
+      });
+
+      conversationList.innerHTML = "";
+      targets.forEach(user => {
+        const msgs = messages.filter(
+          m => (m.senderId == currentUser.id && m.receiverId == user.id) ||
+               (m.receiverId == currentUser.id && m.senderId == user.id)
+        );
+        const lastMsg = msgs[msgs.length - 1]?.message || "No messages yet.";
+        const unread = msgs.some(m => m.receiverId == currentUser.id && !m.read);
+        const online = sessions.some(s => s.userId == user.id);
+
+        const div = document.createElement("div");
+        div.className = "project-card";
+        div.innerHTML = `
+          <strong>${user.name}</strong>
+          ${online ? '<span class="online-status">🟢</span>' : ''}
+          ${unread ? '<span class="new-indicator">(New)</span>' : ''}
+          <br><small>${lastMsg}</small>
+        `;
+        div.onclick = () => openThread(user, msgs, online);
+        conversationList.appendChild(div);
+      });
+    }
+
+    function openThread(user, messages, online) {
+      activeRecipientId = user.id;
+      recipientName.textContent = user.name;
+      threadCard.style.display = "block";
+      threadContent.innerHTML = "";
+      statusOnline.textContent = online ? '🟢 online' : '⚫ offline';
+
+      messages.forEach(msg => {
+        const isMe = msg.senderId == currentUser.id;
+        const p = document.createElement("p");
+        p.style.textAlign = isMe ? "right" : "left";
+        p.innerHTML = `<strong>${isMe ? "Me" : user.name}:</strong> ${msg.message}` +
+          (msg.attachment ? `<br><a href="${msg.attachment}" target="_blank">📎 View Attachment</a>` : "");
+        threadContent.appendChild(p);
+
+        if (!isMe && !msg.read) {
+          fetch(`${baseURL}/messages/${msg.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ read: true })
+          });
+        }
+      });
+      threadContent.scrollTop = threadContent.scrollHeight;
+    }
+
+    messageForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const file = attachment.files[0];
+      let fileUrl = null;
+
+      if (file) {
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          fileUrl = reader.result;
+          await sendMessage(fileUrl);
+        };
+        reader.readAsDataURL(file);
+      } else {
+        await sendMessage(null);
+      }
+    });
+
+    async function sendMessage(attachmentUrl) {
+      const message = {
+        senderId: currentUser.id,
+        receiverId: activeRecipientId,
+        message: messageText.value,
+        timestamp: new Date().toISOString(),
+        read: false,
+        attachment: attachmentUrl
+      };
+      await fetch(`${baseURL}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(message)
+      });
+      messageText.value = "";
+      attachment.value = "";
+      notifySound.play();
+      await loadConversations();
+    }
+
+    setInterval(() => loadConversations(), 5000);
+    loadConversations();
+  </script>
+</body>
+</html>

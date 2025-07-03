@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Submissions - Project Tracker</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f5f7fa;
+      margin: 0;
+      padding: 0;
+    }
+
+    nav.admin-nav {
+      background-color: #2c3e50;
+      padding: 1rem;
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    nav.admin-nav a {
+      color: white;
+      text-decoration: none;
+      font-weight: 500;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      transition: background-color 0.3s ease;
+    }
+    nav.admin-nav a:hover {
+      background-color: #34495e;
+    }
+    nav.admin-nav a.active {
+      background-color: #1abc9c;
+    }
+
+    main {
+      padding: 2rem;
+    }
+    .card {
+      background: white;
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      max-width: 1000px;
+      margin: auto;
+    }
+
+    .filter-bar {
+      margin-bottom: 1.5rem;
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    .filter-bar input, .filter-bar select {
+      padding: 0.6rem;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      flex: 1;
+      min-width: 200px;
+    }
+
+    .task-card {
+      border: 1px solid #ddd;
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+      border-radius: 10px;
+      background-color: #fff;
+      transition: box-shadow 0.3s ease;
+    }
+    .task-card:hover {
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+
+    .task-card h4 {
+      margin-top: 0;
+      color: #2c3e50;
+    }
+
+    button {
+      padding: 8px 14px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-top: 0.5rem;
+      margin-right: 0.5rem;
+      transition: background 0.2s ease;
+    }
+    button:hover {
+      opacity: 0.9;
+    }
+    button.approve {
+      background: #27ae60;
+      color: white;
+    }
+    button.reject {
+      background: #c0392b;
+      color: white;
+    }
+    button.reassign {
+      background: #2980b9;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+
+  <nav class="admin-nav">
+    <a href="admin-dashboard.html">Dashboard</a>
+    <a href="submissions.html" class="active">Submissions</a>
+    <a href="logs.html">Logs</a>
+    <a href="user-dashboard.html">User View</a>
+    <a href="logout.html">Logout</a>
+    <a href="assign-task.html">Assign Task</a>
+  </nav>
+
+  <main>
+    <section class="card">
+      <h2>📤 Task Submissions</h2>
+
+      <div class="filter-bar">
+        <input type="text" id="filterUser" placeholder="Filter by user...">
+        <input type="text" id="filterTask" placeholder="Filter by task...">
+        <select id="filterStatus">
+          <option value="">All Statuses</option>
+          <option value="approved">Approved</option>
+          <option value="pending">Pending</option>
+        </select>
+      </div>
+
+      <div id="submissionList"></div>
+    </section>
+  </main>
+
+  <script>
+    const currentUser = JSON.parse(localStorage.getItem("currentUser"));
+    if (!currentUser || currentUser.role !== "admin") {
+      window.location.href = "login.html";
+    }
+
+    const submissionsURL = "http://localhost:3001/submissions";
+    const tasksURL = "http://localhost:3001/tasks";
+    const usersURL = "http://localhost:3001/users";
+    const logsURL = "http://localhost:3001/logs";
+    const messagesURL = "http://localhost:3001/messages";
+
+    document.addEventListener("DOMContentLoaded", () => {
+      loadSubmissions();
+      document.getElementById("filterUser").addEventListener("input", loadSubmissions);
+      document.getElementById("filterTask").addEventListener("input", loadSubmissions);
+      document.getElementById("filterStatus").addEventListener("change", loadSubmissions);
+    });
+
+    async function loadSubmissions() {
+      const list = document.getElementById("submissionList");
+      list.innerHTML = "<p>Loading...</p>";
+
+      const res = await fetch(submissionsURL);
+      const submissions = await res.json();
+
+      list.innerHTML = "";
+      if (submissions.length === 0) {
+        list.innerHTML = "<p>No submissions yet.</p>";
+        return;
+      }
+
+      const userFilter = document.getElementById("filterUser").value.toLowerCase();
+      const taskFilter = document.getElementById("filterTask").value.toLowerCase();
+      const statusFilter = document.getElementById("filterStatus").value;
+
+      for (const sub of submissions) {
+        if (!sub.taskId) continue;
+
+        const user = await fetch(`${usersURL}/${sub.userId}`).then(r => r.ok ? r.json() : null);
+        const task = await fetch(`${tasksURL}/${sub.taskId}`).then(r => r.ok ? r.json() : null);
+        if (!user || !task) continue;
+
+        const userName = user.name.toLowerCase();
+        const taskTitle = task.taskTitle?.toLowerCase() || task.title?.toLowerCase() || "untitled";
+        const status = sub.approved ? "approved" : "pending";
+
+        if (
+          (userFilter && !userName.includes(userFilter)) ||
+          (taskFilter && !taskTitle.includes(taskFilter)) ||
+          (statusFilter && status !== statusFilter)
+        ) continue;
+
+        const div = document.createElement("div");
+        div.className = "task-card";
+        div.innerHTML = `
+          <h4>${task.taskTitle || task.title || "Untitled Task"}</h4>
+          <p><strong>👤 Submitted by:</strong> ${user.name}</p>
+          <p><strong>🕒 Date:</strong> ${new Date(sub.timestamp || sub.dateSubmitted).toLocaleString()}</p>
+          <p><strong>📝 Remarks:</strong> ${sub.remarks || "-"}</p>
+          ${sub.link ? `<p><strong>🔗 Link:</strong> <a href="${sub.link}" target="_blank">${sub.link}</a></p>` : ""}
+          ${sub.pdf ? `<p><strong>📎 PDF:</strong> <a href="${sub.pdf}" target="_blank">View File</a></p>` : ""}
+          <p><strong>Status:</strong> ${task.submissionStatus || "Pending"}</p>
+
+          ${!sub.approved && task.submissionStatus === "Submitted" ? `
+            <button class="approve" onclick="handleAction('approve', '${sub.id}', '${task.id}', '${user.id}', '${task.title}')">✔️ Approve</button>
+            <button class="reject" onclick="handleAction('reject', '${sub.id}', '${task.id}', '${user.id}', '${task.title}')">❌ Reject</button>
+          ` : ""}
+
+          ${task.submissionStatus === "Rejected" ? `
+            <button class="reassign" onclick="reassignTask('${task.id}', '${sub.id}')">♻️ Reassign Task</button>
+          ` : ""}
+        `;
+        list.appendChild(div);
+      }
+    }
+
+    async function handleAction(type, submissionId, taskId, userId, taskTitle) {
+      const buttons = document.querySelectorAll(`button[onclick*="'${submissionId}'"]`);
+      buttons.forEach(btn => btn.disabled = true);
+
+      const confirmMsg = type === "approve" ? "Approve this submission?" : "Reject this submission?";
+      if (!confirm(confirmMsg)) return;
+
+      const approved = type === "approve";
+      const statusText = approved ? "Approved" : "Rejected";
+
+      await fetch(`${submissionsURL}/${submissionId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ approved })
+      });
+
+      await fetch(`${tasksURL}/${taskId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ submissionStatus: statusText, status: statusText })
+      });
+
+      await fetch(logsURL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: currentUser.id,
+          action: `${statusText} submission ID: ${submissionId}`,
+          timestamp: new Date().toISOString()
+        })
+      });
+
+      await fetch(messagesURL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          senderId: currentUser.id,
+          receiverId: userId,
+          message: `Your submission for "${taskTitle}" was ${statusText.toLowerCase()}.`,
+          timestamp: new Date().toISOString(),
+          read: false
+        })
+      });
+
+      alert(`✅ Submission ${statusText.toLowerCase()}.`);
+      loadSubmissions();
+    }
+
+    async function reassignTask(taskId, submissionId) {
+      if (!confirm("Are you sure you want to reassign this task?")) return;
+
+      await fetch(`${tasksURL}/${taskId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          submissionStatus: "Pending",
+          status: "Pending"
+        })
+      });
+
+      await fetch(`${submissionsURL}/${submissionId}`, {
+        method: "DELETE"
+      });
+
+      await fetch(logsURL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: currentUser.id,
+          action: `Reassigned task ID: ${taskId}`,
+          timestamp: new Date().toISOString()
+        })
+      });
+
+      alert("♻️ Task reassigned successfully.");
+      loadSubmissions();
+    }
+  </script>
+</body>
+</html>

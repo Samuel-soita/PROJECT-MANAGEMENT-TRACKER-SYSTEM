@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin Dashboard - Project Tracker</title>
+  <link rel="stylesheet" href="style.css" />
+  <script defer src="scripts/session.js"></script>
+  <script defer src="admin-dashboard.js"></script>
+</head>
+<body>
+  <nav class="admin-nav" aria-label="Primary Navigation">
+    <a href="admin-dashboard.html" class="active" aria-current="page">Dashboard</a>
+    <a href="assign-task.html">Assign Task</a>
+    <a href="submissions.html">Submissions</a>
+    <a href="logs.html">Logs</a>
+    <a href="communicate.html">Messages</a>
+    <a href="logout.html">Logout</a>
+    <a href="task-detail.html">Tasks</a>
+    <a href="user-dashboard.html">User View</a>
+  </nav>
+
+  <main class="dashboard-container" role="main" aria-label="Admin Dashboard">
+    <h1>Welcome, Admin</h1>
+
+    <section class="card" aria-labelledby="projectsHeading">
+      <h2 id="projectsHeading">Projects Overview</h2>
+      <input
+        type="search"
+        id="projectSearch"
+        placeholder="Search projects..."
+        aria-label="Search projects"
+        autocomplete="off"
+      />
+      <div id="projectsContainer" aria-live="polite" aria-relevant="additions removals">
+        <!-- Projects list populated dynamically -->
+      </div>
+      <button id="addProjectBtn" class="btn-primary" aria-haspopup="dialog" aria-controls="projectModal">
+        + Add New Project
+      </button>
+    </section>
+
+    <section class="card" aria-labelledby="tasksHeading">
+      <h2 id="tasksHeading">Tasks Overview</h2>
+      <input
+        type="search"
+        id="taskSearch"
+        placeholder="Search tasks..."
+        aria-label="Search tasks"
+        autocomplete="off"
+      />
+      <div id="tasksContainer" aria-live="polite" aria-relevant="additions removals">
+        <!-- Tasks list populated dynamically -->
+        <!-- Example of a task card with Reassign Task button (you will populate dynamically in JS) -->
+        <!--
+        <div class="dashboard-card">
+          <h4>Task Title</h4>
+          <p><strong>Priority:</strong> Medium</p>
+          <p><strong>Deadline:</strong> 2025-07-10</p>
+          <p><strong>Project:</strong> Project Name</p>
+          <div class="action-buttons">
+            <button onclick="openTaskModal('taskId')">✏️ Edit</button>
+            <button onclick="deleteTask('taskId')">🗑 Delete</button>
+            <button onclick="openReassignModal('taskId')" class="btn-secondary">🔄 Reassign Task</button>
+          </div>
+        </div>
+        -->
+      </div>
+      <button id="addTaskBtn" class="btn-primary" aria-haspopup="dialog" aria-controls="taskModal">
+        + Add New Task
+      </button>
+    </section>
+
+    <section class="card" aria-labelledby="usersHeading">
+      <h2 id="usersHeading">Users Management</h2>
+      <input
+        type="search"
+        id="userSearch"
+        placeholder="Search users..."
+        aria-label="Search users"
+        autocomplete="off"
+      />
+      <div id="usersContainer" aria-live="polite" aria-relevant="additions removals">
+        <!-- Users list populated dynamically -->
+      </div>
+      <button id="addUserBtn" class="btn-primary" aria-haspopup="dialog" aria-controls="userModal">
+        + Add New User
+      </button>
+    </section>
+
+    <!-- Project Modal -->
+    <div
+      id="projectModal"
+      class="modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="projectModalTitle"
+      aria-describedby="projectModalDesc"
+      tabindex="-1"
+      aria-hidden="true"
+    >
+      <div class="modal-content">
+        <header>
+          <h3 id="projectModalTitle">Add Project</h3>
+          <button
+            type="button"
+            aria-label="Close project form"
+            id="closeProjectModalBtn"
+            class="modal-close"
+          >
+            &times;
+          </button>
+        </header>
+        <form id="projectForm" aria-describedby="projectModalDesc">
+          <input type="hidden" id="projectId" />
+          <label for="projectName">Project Name:</label>
+          <input type="text" id="projectName" name="projectName" required />
+
+          <label for="projectClient">Client:</label>
+          <input type="text" id="projectClient" name="projectClient" />
+
+          <label for="projectDesc">Description:</label>
+          <textarea id="projectDesc" name="projectDesc" rows="3"></textarea>
+
+          <label for="projectStart">Start Date:</label>
+          <input type="date" id="projectStart" name="projectStart" />
+
+          <label for="projectEnd">End Date:</label>
+          <input type="date" id="projectEnd" name="projectEnd" />
+
+          <label for="projectStatus">Status:</label>
+          <select id="projectStatus" name="projectStatus" required>
+            <option value="Planned">Planned</option>
+            <option value="Active">Active</option>
+            <option value="Completed">Completed</option>
+            <option value="On Hold">On Hold</option>
+          </select>
+
+          <label for="projectRemarks">Remarks:</label>
+          <textarea id="projectRemarks" name="projectRemarks" rows="2"></textarea>
+
+          <button type="submit" class="btn-primary">Save Project</button>
+        </form>
+      </div>
+      <div class="modal-overlay"></div>
+    </div>
+
+    <!-- Task Modal -->
+    <div
+      id="taskModal"
+      class="modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="taskModalTitle"
+      tabindex="-1"
+      aria-hidden="true"
+    >
+      <div class="modal-content">
+        <header>
+          <h3 id="taskModalTitle">Add Task</h3>
+          <button
+            type="button"
+            aria-label="Close task form"
+            id="closeTaskModalBtn"
+            class="modal-close"
+          >
+            &times;
+          </button>
+        </header>
+        <form id="taskForm">
+          <input type="hidden" id="taskId" />
+          <label for="taskTitle">Task Title:</label>
+          <input type="text" id="taskTitle" name="taskTitle" required />
+
+          <label for="taskDesc">Description:</label>
+          <textarea id="taskDesc" name="taskDesc" rows="3"></textarea>
+
+          <label for="taskDeadline">Deadline:</label>
+          <input type="date" id="taskDeadline" name="taskDeadline" />
+
+          <label for="taskPriority">Priority:</label>
+          <select id="taskPriority" name="taskPriority" required>
+            <option value="Low">Low</option>
+            <option value="Medium" selected>Medium</option>
+            <option value="High">High</option>
+          </select>
+
+          <label for="taskProject">Project:</label>
+          <select id="taskProject" name="taskProject">
+            <option value="">-- Optional: Link to Project --</option>
+            <!-- Dynamically filled -->
+          </select>
+
+          <label for="taskRemarks">Remarks:</label>
+          <textarea id="taskRemarks" name="taskRemarks" rows="2"></textarea>
+
+          <button type="submit" class="btn-primary">Save Task</button>
+        </form>
+      </div>
+      <div class="modal-overlay"></div>
+    </div>
+
+    <!-- Reassign Task Modal -->
+    <div
+      id="reassignModal"
+      class="modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="reassignModalTitle"
+      tabindex="-1"
+      aria-hidden="true"
+    >
+      <div class="modal-content">
+        <header>
+          <h3 id="reassignModalTitle">Reassign Task</h3>
+          <button
+            type="button"
+            aria-label="Close reassign task form"
+            id="closeReassignModalBtn"
+            class="modal-close"
+          >
+            &times;
+          </button>
+        </header>
+        <form id="reassignForm">
+          <input type="hidden" id="reassignTaskId" />
+          <label for="reassignUserSelect">Assign To:</label>
+          <select id="reassignUserSelect" name="reassignUserSelect" required>
+            <!-- Populate with users dynamically -->
+          </select>
+
+          <button type="submit" class="btn-primary">Reassign</button>
+        </form>
+      </div>
+      <div class="modal-overlay"></div>
+    </div>
+
+    <!-- User Modal -->
+    <div
+      id="userModal"
+      class="modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="userModalTitle"
+      tabindex="-1"
+      aria-hidden="true"
+    >
+      <div class="modal-content">
+        <header>
+          <h3 id="userModalTitle">Add User</h3>
+          <button
+            type="button"
+            aria-label="Close user form"
+            id="closeUserModalBtn"
+            class="modal-close"
+          >
+            &times;
+          </button>
+        </header>
+        <form id="userForm">
+          <input type="hidden" id="userId" />
+          <label for="userName">Name:</label>
+          <input type="text" id="userName" name="userName" required />
+
+          <label for="userEmail">Email:</label>
+          <input type="email" id="userEmail" name="userEmail" required />
+
+          <label for="userPhone">Phone Number:</label>
+          <input
+            type="tel"
+            id="userPhone"
+            name="userPhone"
+            pattern="[0-9+()-\s]+"
+            title="Enter a valid phone number"
+            required
+          />
+
+          <label for="userRole">Role:</label>
+          <select id="userRole" name="userRole" required>
+            <option value="user">User</option>
+            <option value="admin">Admin</option>
+          </select>
+
+          <label for="userPassword">Password:</label>
+          <input
+            type="password"
+            id="userPassword"
+            name="userPassword"
+            required
+            minlength="6"
+          />
+
+          <button type="submit" class="btn-primary">Save User</button>
+        </form>
+      </div>
+      <div class="modal-overlay"></div>
+    </div>
+  </main>
+</body>
+</html>

@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>User Dashboard - Project Tracker</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #f4f6f8;
+      background-image: url('image/2.jpg');
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      margin: 0;
+    }
+    nav {
+      background-color: #2c3e50;
+      padding: 1rem;
+      display: flex;
+      gap: 1.5rem;
+      justify-content: center;
+    }
+    nav a {
+      color: white;
+      text-decoration: none;
+      font-weight: bold;
+      padding-bottom: 4px;
+      transition: 0.3s;
+    }
+    nav a:hover,
+    nav a.active {
+      border-bottom: 2px solid #1abc9c;
+    }
+    main {
+      max-width: 1000px;
+      margin: 2rem auto;
+      background: white;
+      padding: 2rem;
+      border-radius: 15px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+    }
+    h2 {
+      margin-bottom: 1.5rem;
+      color: #2c3e50;
+    }
+    h3 {
+      margin-bottom: 1rem;
+      color: #34495e;
+    }
+    .section {
+      margin-bottom: 3rem;
+    }
+    .card {
+      background: #f9f9f9;
+      padding: 1.5rem;
+      border: 1px solid #ddd;
+      border-radius: 12px;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+      transition: all 0.3s ease;
+    }
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+    }
+    input[type="url"], input[type="file"] {
+      width: 100%;
+      margin-top: 0.5rem;
+      padding: 0.7rem;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      margin-bottom: 1rem;
+      font-size: 0.95rem;
+    }
+    button {
+      background: #1abc9c;
+      color: white;
+      border: none;
+      padding: 0.6rem 1.2rem;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+      font-weight: bold;
+    }
+    button:hover {
+      background: #16a085;
+    }
+    .status {
+      font-weight: bold;
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+    .status.submitted {
+      background-color: #dff0d8;
+      color: #3c763d;
+    }
+    .status.pending {
+      background-color: #fcf8e3;
+      color: #8a6d3b;
+    }
+    .status.in-review {
+      background-color: #d9edf7;
+      color: #31708f;
+    }
+    .admin-reply {
+      background: #fff9e6;
+      padding: 0.8rem;
+      border-left: 4px solid #f39c12;
+      margin-top: 1rem;
+      border-radius: 6px;
+    }
+    label {
+      font-weight: 600;
+      color: #555;
+    }
+    a {
+      color: #3498db;
+    }
+    @media (max-width: 600px) {
+      nav {
+        flex-wrap: wrap;
+      }
+      main {
+        padding: 1rem;
+      }
+      .card {
+        padding: 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <a href="user-dashboard.html" class="active">My Tasks</a>
+    <a href="communicate.html">Messages</a>
+    <a href="admin-dashboard.html">Dashboard</a>
+    <a href="logout.html">Logout</a>
+  </nav>
+
+  <main>
+    <h2>Welcome, User</h2>
+
+    <div class="section">
+      <h3>📌 Assigned Tasks</h3>
+      <div id="taskList"></div>
+    </div>
+
+    <div class="section">
+      <h3>📁 Projects Involved</h3>
+      <div id="projectList"></div>
+    </div>
+  </main>
+
+  <script>
+    const baseURL = "http://localhost:3001";
+    const currentUser = JSON.parse(localStorage.getItem("currentUser"));
+
+    if (!currentUser || currentUser.role !== "user") {
+      alert("Access denied.");
+      window.location.href = "login.html";
+    }
+
+    async function fetchTasks() {
+      const res = await fetch(`${baseURL}/tasks?assignedTo=${currentUser.id}`);
+      const tasks = await res.json();
+      const container = document.getElementById("taskList");
+      container.innerHTML = "";
+
+      const pendingTasks = tasks.filter(task => task.submissionStatus !== "Submitted");
+
+      if (pendingTasks.length === 0) {
+        container.innerHTML = "<p>No tasks to display. All submitted ✅</p>";
+        return;
+      }
+
+      pendingTasks.forEach(task => {
+        const pdfLink = task.pdf || "";
+        const statusClass = task.submissionStatus === "Submitted" ? "submitted"
+                            : task.submissionStatus === "In Review" ? "in-review" : "pending";
+        const div = document.createElement("div");
+        div.className = "card";
+        div.innerHTML = `
+          <h4>${task.title}</h4>
+          <p>${task.description}</p>
+          <small><strong>Deadline:</strong> ${task.deadline}</small><br>
+          <small><strong>Task Status:</strong> ${task.status || "N/A"}</small><br>
+          <small><strong>Submission:</strong> <span class="status ${statusClass}">${task.submissionStatus || "Pending"}</span></small>
+          <br><br>
+          ${task.adminReply ? `<div class="admin-reply"><strong>Admin Reply:</strong><br>${task.adminReply}</div>` : ""}
+          <label>Submission Link (optional):</label>
+          <input type="url" id="link-${task.id}" value="${task.link || ""}" placeholder="Paste a link to your work">
+          <label>Attach PDF:</label>
+          <input type="file" id="pdf-${task.id}" accept="application/pdf">
+          ${pdfLink ? `<p>📎 <a href="${pdfLink}" target="_blank">Download submitted file</a></p>` : ""}
+          <button onclick="submitTask('${task.id}')">📤 Submit Task</button>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    async function fetchProjects() {
+      const res = await fetch(`${baseURL}/tasks?assignedTo=${currentUser.id}`);
+      const tasks = await res.json();
+      const projectIds = [...new Set(tasks.map(t => t.projectId))].filter(Boolean);
+      const allProjects = await (await fetch(`${baseURL}/projects`)).json();
+      const container = document.getElementById("projectList");
+      container.innerHTML = "";
+
+      const myProjects = allProjects.filter(p => projectIds.includes(p.id));
+      if (myProjects.length === 0) {
+        container.innerHTML = "<p>No projects.</p>";
+        return;
+      }
+
+      myProjects.forEach(p => {
+        const div = document.createElement("div");
+        div.className = "card";
+        div.innerHTML = `
+          <h4>${p.name}</h4>
+          <p>${p.description}</p>
+          <small><strong>Duration:</strong> ${p.startDate} to ${p.endDate}</small><br>
+          <small><strong>Status:</strong> <span class="status">${p.status || "Unknown"}</span></small>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    async function submitTask(taskId) {
+      const link = document.getElementById(`link-${taskId}`).value;
+      const fileInput = document.getElementById(`pdf-${taskId}`);
+      const file = fileInput.files[0];
+
+      const taskRes = await fetch(`${baseURL}/tasks/${taskId}`);
+      const task = await taskRes.json();
+
+      let pdfData = task.pdf || null;
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+          pdfData = e.target.result;
+          await handleSubmission(task, link, pdfData);
+        };
+        reader.readAsDataURL(file);
+      } else {
+        await handleSubmission(task, link, pdfData);
+      }
+    }
+
+    async function handleSubmission(task, link, pdf) {
+      const updatedTask = {
+        ...task,
+        link,
+        pdf,
+        submissionStatus: "Submitted"
+      };
+
+      const submissionRecord = {
+        taskId: task.id,
+        userId: currentUser.id,
+        timestamp: new Date().toISOString(),
+        link,
+        pdf,
+        approved: false
+      };
+
+      await fetch(`${baseURL}/tasks/${task.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedTask)
+      });
+
+      await fetch(`${baseURL}/submissions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(submissionRecord)
+      });
+
+      alert("Task submitted successfully and logged.");
+      fetchTasks();
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      fetchTasks();
+      fetchProjects();
+    });
+  </script>
+</body>
+</html>
